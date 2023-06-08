@@ -50,6 +50,7 @@ async function run() {
 
 
     const usersCollection = client.db('LearningDB').collection('users');
+    const classesCollection = client.db('LearningDB').collection('classes');
 
 
 
@@ -80,6 +81,20 @@ async function run() {
       const result = await usersCollection.find().toArray();
       res.send(result);
     })
+
+
+    app.delete('/users/:id', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const filter = { _id: new ObjectId(id) };
+    
+        const result = await usersCollection.deleteOne(filter);
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+      }
+    });
 
 
     app.get('/users/admin/:email', verifyJWT, async (req, res) => {
@@ -148,6 +163,92 @@ async function run() {
       res.send(result);
 
     })
+
+
+
+    app.post('/classes', verifyJWT, async (req, res) => {
+      const { className, classPhotoURL, instructorName, instructorEmail, availableSeats, price } = req.body;
+      const status = 'pending';
+
+      const newClass = {
+        className,
+        classPhotoURL,
+        instructorName,
+        instructorEmail,
+        availableSeats,
+        price,
+        status,
+      };
+
+      const result = await classesCollection.insertOne(newClass);
+      res.send(result);
+    });
+
+
+    app.get('/allclasses', async (req, res) => {
+      try {
+        const classes = await classesCollection.find().toArray();
+        res.send(classes);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+      }
+    });
+
+    app.patch('/allclasses/:classId', async (req, res) => {
+      try {
+        const classId = req.params.classId;
+        const { status } = req.body;
+        
+        const filter = { _id: new ObjectId(classId) };
+        const updateDoc = {
+          $set: {
+            status: status,
+          },
+        };
+        
+        const result = await classesCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+      }
+    });
+
+
+    //Logged in user specific email class data's
+    app.get('/classes', async (req, res) => {
+      console.log(req.query.email);
+      
+      let query = {};
+      if (req.query?.email) {
+        query = { sellerEmail: req.query.email }
+      }
+
+      const result = await classesCollection.find(query).toArray();
+      res.send(result);
+    })
+
+
+    app.patch('/classes/:classId', async (req, res) => {
+      try {
+        const classId = req.params.classId;
+        const { status } = req.body;
+        
+        const filter = { _id: new ObjectId(classId) };
+        const updateDoc = {
+          $set: {
+            status: status,
+          },
+        };
+        
+        const result = await classesCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+      }
+    });
 
 
 

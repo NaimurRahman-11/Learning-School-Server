@@ -252,6 +252,29 @@ async function run() {
 
 
 
+    app.get('/classes/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await classesCollection.findOne(query);
+      res.send(result);
+    })
+
+
+
+
+    //Approved classes
+    app.get('/approved-classes', async (req, res) => {
+      try {
+        const approvedClasses = await classesCollection.find({ status: 'approved' }).toArray();
+        res.send(approvedClasses);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+      }
+    });
+
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });

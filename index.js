@@ -222,7 +222,7 @@ async function run() {
       
       let query = {};
       if (req.query?.email) {
-        query = { sellerEmail: req.query.email }
+        query = { instructorEmail: req.query.email }
       }
 
       const result = await classesCollection.find(query).toArray();

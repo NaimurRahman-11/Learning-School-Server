@@ -52,6 +52,7 @@ async function run() {
     const usersCollection = client.db('LearningDB').collection('users');
     const classesCollection = client.db('LearningDB').collection('classes');
     const selectedClassesCollection = client.db('LearningDB').collection('selectedClasses');
+    const cartCollection = client.db("LearningDB").collection("carts");
 
 
 
@@ -282,7 +283,59 @@ async function run() {
     })
 
 
+    app.post('/selected-classes', async (req, res) => {
+      const item = req.body;
+      const result = await selectedClassesCollection.insertOne(item);
+      res.send(result);
+    })
 
+    app.post("/carts", async (req, res) => {
+      const cartItem = req.body;
+    
+      try {
+        const existingCartItem = await cartCollection.findOne({
+          classItemId: cartItem.classItemId,
+          email: cartItem.email
+        });
+    
+        if (existingCartItem) {
+          res.status(400).json({ message: "Item Already Selected" });
+          return;
+        }
+    
+        const result = await cartCollection.insertOne(cartItem);
+        res.json({ insertedId: result.insertedId });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to add item to cart." });
+      }
+    });
+
+    app.get("/carts", async (req, res) => {
+      const userEmail = req.query.email;
+    
+      try {
+        const selectedItems = await cartCollection.find({ email: userEmail }).toArray();
+        res.json(selectedItems);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to retrieve selected items from cart." });
+      }
+    });
+
+
+    app.delete('/carts/:id', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const filter = { _id: new ObjectId(id) };
+    
+        const result = await cartCollection.deleteOne(filter);
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+      }
+    });
 
 
 

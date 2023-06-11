@@ -85,6 +85,30 @@ async function run() {
     });
     
 
+    app.get('/payments/:email', async (req, res) => {
+      const email = req.params.email;
+    
+      try {
+        const user = await paymentCollection.findOne({ email });
+    
+        if (user) {
+          const classes = user.cartItems;
+          res.send(classes);
+        } else {
+          res.status(404).send({ error: 'User not found' });
+        }
+      } catch (error) {
+        res.status(500).send({ error: 'Internal server error' });
+      }
+    });
+    
+
+    app.get('/payments', async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      res.send(result);
+    })
+    
+
 
 
     app.post('/jwt', (req, res) => {

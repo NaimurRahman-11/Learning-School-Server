@@ -77,20 +77,20 @@ async function run() {
     app.post('/payments', verifyJWT, async (req, res) => {
       const payment = req.body;
       const insertResult = await paymentCollection.insertOne(payment);
-    
+
       const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
       const deleteResult = await cartCollection.deleteMany(query)
-    
+
       res.send({ insertedId: insertResult.insertedId, deleteResult });
     });
-    
+
 
     app.get('/payments/:email', async (req, res) => {
       const email = req.params.email;
-    
+
       try {
         const user = await paymentCollection.findOne({ email });
-    
+
         if (user) {
           const classes = user.cartItems;
           res.send(classes);
@@ -101,13 +101,13 @@ async function run() {
         res.status(500).send({ error: 'Internal server error' });
       }
     });
-    
+
 
     app.get('/payments', async (req, res) => {
       const result = await paymentCollection.find().toArray();
       res.send(result);
     })
-    
+
 
 
 
@@ -143,7 +143,7 @@ async function run() {
       try {
         const { id } = req.params;
         const filter = { _id: new ObjectId(id) };
-    
+
         const result = await usersCollection.deleteOne(filter);
         res.send(result);
       } catch (error) {
@@ -157,7 +157,7 @@ async function run() {
       const email = req.params.email;
 
       if (req.decoded.email !== email) {
-        res.send({admin: false})
+        res.send({ admin: false })
       }
 
 
@@ -173,7 +173,7 @@ async function run() {
       const email = req.params.email;
 
       if (req.decoded.email !== email) {
-        res.send({admin: false})
+        res.send({ admin: false })
       }
 
 
@@ -183,9 +183,6 @@ async function run() {
       const result = { instructor: user?.role === 'instructor' }
       res.send(result);
     })
-
-
-
 
 
 
@@ -223,7 +220,7 @@ async function run() {
 
 
     app.post('/classes', verifyJWT, async (req, res) => {
-      const { className, classPhotoURL, instructorName, instructorEmail, availableSeats, price } = req.body;
+      const { className, classPhotoURL, instructorName, instructorEmail, availableSeats, price, enrolledStudents } = req.body;
       const status = 'pending';
 
       const newClass = {
@@ -234,6 +231,7 @@ async function run() {
         availableSeats,
         price,
         status,
+        enrolledStudents
       };
 
       const result = await classesCollection.insertOne(newClass);
@@ -255,14 +253,14 @@ async function run() {
       try {
         const classId = req.params.classId;
         const { status } = req.body;
-        
+
         const filter = { _id: new ObjectId(classId) };
         const updateDoc = {
           $set: {
             status: status,
           },
         };
-        
+
         const result = await classesCollection.updateOne(filter, updateDoc);
         res.send(result);
       } catch (error) {
@@ -275,7 +273,7 @@ async function run() {
     //Logged in user specific email class data's
     app.get('/classes', async (req, res) => {
       console.log(req.query.email);
-      
+
       let query = {};
       if (req.query?.email) {
         query = { instructorEmail: req.query.email }
@@ -290,14 +288,14 @@ async function run() {
       try {
         const classId = req.params.classId;
         const { status } = req.body;
-        
+
         const filter = { _id: new ObjectId(classId) };
         const updateDoc = {
           $set: {
             status: status,
           },
         };
-        
+
         const result = await classesCollection.updateOne(filter, updateDoc);
         res.send(result);
       } catch (error) {
@@ -329,6 +327,16 @@ async function run() {
       }
     });
 
+    app.get('/top-classes', async (req, res) => {
+      try {
+        const approvedClasses = await classesCollection.find({ status: 'approved' }).sort({ enrolledStudents: -1 }).toArray();
+        res.send(approvedClasses);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+      }
+    });
+
     app.get('/approved-classes/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
@@ -342,6 +350,13 @@ async function run() {
       const result = await selectedClassesCollection.insertOne(item);
       res.send(result);
     })
+
+
+
+
+
+
+
 
     app.post("/carts", async (req, res) => {
       const cartItem = req.body;
@@ -357,17 +372,49 @@ async function run() {
           return;
         }
     
-        const result = await cartCollection.insertOne(cartItem);
-        res.json({ insertedId: result.insertedId });
+        const session = await client.startSession();
+        session.startTransaction();
+    
+        try {
+          const options = { session };
+    
+          // Update enrolledStudents in the classes collection
+          await classesCollection.updateOne(
+            { _id: new ObjectId(cartItem.classItemId) },
+            { $inc: { enrolledStudents: 1, availableSeats: -1 } },
+            options
+          );
+    
+          // Insert the cart item
+          const result = await cartCollection.insertOne(cartItem, options);
+    
+          await session.commitTransaction();
+          session.endSession();
+    
+          res.json({ insertedId: result.insertedId });
+        } catch (error) {
+          await session.abortTransaction();
+          session.endSession();
+    
+          console.error(error);
+          res.status(500).json({ message: "Failed to add item to cart." });
+        }
       } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Failed to add item to cart." });
       }
     });
 
+    
+
+
+
+
+
+
     app.get("/carts", async (req, res) => {
       const userEmail = req.query.email;
-    
+
       try {
         const selectedItems = await cartCollection.find({ email: userEmail }).toArray();
         res.json(selectedItems);
@@ -382,7 +429,7 @@ async function run() {
       try {
         const { id } = req.params;
         const filter = { _id: new ObjectId(id) };
-    
+
         const result = await cartCollection.deleteOne(filter);
         res.send(result);
       } catch (error) {
@@ -393,7 +440,7 @@ async function run() {
 
 
 
-  
+
 
 
 

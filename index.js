@@ -68,21 +68,14 @@ async function run() {
         currency: 'usd',
         payment_method_types: ['card']
       });
+
       res.send({
         clientSecret: paymentIntent.client_secret
       })
     })
 
 
-    app.post('/payments', verifyJWT, async (req, res) => {
-      const payment = req.body;
-      const insertResult = await paymentCollection.insertOne(payment);
-
-      const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
-      const deleteResult = await cartCollection.deleteMany(query)
-
-      res.send({ insertedId: insertResult.insertedId, deleteResult });
-    });
+    
 
 
     app.get('/payments/:email', async (req, res) => {
@@ -304,6 +297,31 @@ async function run() {
       }
     });
 
+    app.patch('/approved-classes/:classItemId', async (req, res) => {
+      try {
+        const itemId = req.params.classItemId;
+        const { enrolledStudents, availableSeats } = req.body;
+    
+        const filter = { _id: new ObjectId(itemId) };
+    
+        const updateDoc = {
+          $inc: {
+            enrolledStudents: parseInt(enrolledStudents),
+            availableSeats: parseInt(availableSeats),
+          },
+        };
+    
+        const result = await classesCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred' });
+      }
+    });
+    
+    
+    
+
 
 
     app.get('/classes/:id', async (req, res) => {
@@ -360,42 +378,42 @@ async function run() {
 
     app.post("/carts", async (req, res) => {
       const cartItem = req.body;
-    
+
       try {
         const existingCartItem = await cartCollection.findOne({
           classItemId: cartItem.classItemId,
           email: cartItem.email
         });
-    
+
         if (existingCartItem) {
           res.status(400).json({ message: "Item Already Selected" });
           return;
         }
-    
+
         const session = await client.startSession();
         session.startTransaction();
-    
+
         try {
           const options = { session };
-    
+
           // Update enrolledStudents in the classes collection
-          await classesCollection.updateOne(
-            { _id: new ObjectId(cartItem.classItemId) },
-            { $inc: { enrolledStudents: 1, availableSeats: -1 } },
-            options
-          );
-    
+          // await classesCollection.updateOne(
+          //   { _id: new ObjectId(cartItem.classItemId) },
+          //   { $inc: { enrolledStudents: 1, availableSeats: -1 } },
+          //   options
+          // );
+
           // Insert the cart item
           const result = await cartCollection.insertOne(cartItem, options);
-    
+
           await session.commitTransaction();
           session.endSession();
-    
+
           res.json({ insertedId: result.insertedId });
         } catch (error) {
           await session.abortTransaction();
           session.endSession();
-    
+
           console.error(error);
           res.status(500).json({ message: "Failed to add item to cart." });
         }
@@ -405,9 +423,21 @@ async function run() {
       }
     });
 
+
+
+
+    app.post('/payments', verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
+
+      const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
+      const deleteResult = await cartCollection.deleteMany(query)
+
+      res.send({ insertedId: insertResult.insertedId, deleteResult });
+    });
     
-
-
+    
+    
 
 
 

@@ -97,9 +97,9 @@ async function run() {
 
 
     app.get('/payments', async (req, res) => {
-      const result = await paymentCollection.find().toArray();
+      const result = await paymentCollection.find().sort({ date: -1 }).toArray();
       res.send(result);
-    })
+    });
 
 
 
